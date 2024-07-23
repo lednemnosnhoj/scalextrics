@@ -10,6 +10,9 @@ RECORD_TIME_AFTER = 3   # Time to record after motion detection in seconds
 FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 FRAMERATE = 24
+TOTAL_RECORD_TIME = 60  # Total record time in seconds
+
+# Need to use a circular buffer: https://picamera.readthedocs.io/en/release-1.13/recipes1.html#recording-to-a-circular-stream
 
 def detect_motion(frame1, frame2):
     # Convert frames to grayscale
@@ -36,8 +39,14 @@ def main():
         frame_buffer = deque(maxlen=RECORD_TIME_BEFORE * FRAMERATE)
         recording = False
         motion_detected_time = None
-        
-        while True:
+
+        # Initialize VideoWriter
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out = cv2.VideoWriter('output.avi', fourcc, FRAMERATE, (FRAME_WIDTH, FRAME_HEIGHT))
+
+        start_time = time.time()
+
+        while time.time() - start_time < TOTAL_RECORD_TIME:
             # Capture current frame
             camera.capture(current_frame, 'bgr')
             frame_buffer.append(current_frame.copy())
@@ -53,15 +62,19 @@ def main():
                     if not frame_buffer:
                         break
                     frame = frame_buffer.popleft()
-                    # Simulate saving frame to video file
+                    out.write(frame)  # Save frame to video file
                     print("Saving frame...")
 
                 recording = False
                 print("Recording stopped")
-            
+
             # Prepare for next frame
             prev_frame = np.copy(current_frame)
             time.sleep(1.0 / FRAMERATE)  # Adjust sleep time to match frame rate
+
+        # Release the VideoWriter
+        out.release()
+        print("Recording completed and saved to output.avi")
 
 if __name__ == "__main__":
     main()
